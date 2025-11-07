@@ -9,6 +9,12 @@ host_addr = os.environ["HOST_ADDR"]
 username = os.environ["USERNAME"]
 password = os.environ["PASSWORD"]
 
+print("--- Server Configuration ---")
+print(f"HOST_ADDR: {host_addr}")
+print(f"USERNAME: {username}")
+print(f"PASSWORD: {password}")
+print("----------------------------")
+
 app = FastAPI()
 
 
@@ -17,9 +23,9 @@ async def pilot_login():
     file_path = "./couldhtml/login.html"
     with open(file_path, 'r') as file:
         file_content = file.read()
-    file_content.replace("hostnamehere", host_addr)
-    file_content.replace("userloginhere", username)
-    file_content.replace("userpasswordhere", password)
+    file_content = file_content.replace("hostnamehere", host_addr)
+    file_content = file_content.replace("userloginhere", username)
+    file_content = file_content.replace("userpasswordhere", password)
     return HTMLResponse(file_content)
 
 
