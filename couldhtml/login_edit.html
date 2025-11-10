@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom GCS Login</title>
+    <style>
+        body { font-family: sans-serif; background-color: #1e1e1e; color: #ccc; padding: 20px; }
+        h2 { color: #fff; border-bottom: 1px solid #555; padding-bottom: 10px; }
+        .btn { background-color: #0070f0; color: white; border: none; padding: 12px 24px; margin: 10px 0; border-radius: 4px; font-size: 16px; width: 100%; cursor: pointer; transition: background-color 0.2s; }
+        .btn:disabled { background-color: #444; color: #888; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { background-color: #005bd4; }
+        #info-panel { background-color: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #444; }
+        .info-item { margin-bottom: 8px; font-size: 14px; }
+        .info-label { color: #888; font-weight: bold; margin-right: 10px; }
+        .info-value { color: #fff; font-family: monospace; }
+        #logs { background-color: #000; padding: 10px; height: 250px; overflow-y: auto; font-family: monospace; font-size: 12px; border: 1px solid #333; }
+        .status-ok { color: #4caf50; }
+        .status-warn { color: #ff9800; }
+        .status-err { color: #f44336; }
+    </style>
+</head>
+<body>
+    <h2>Custom GCS Connector</h2>
+
+    <div id="info-panel">
+        <div class="info-item">
+            <span class="info-label">RC Serial:</span>
+            <span id="rc-sn" class="info-value">Waiting...</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Drone Serial:</span>
+            <span id="drone-sn" class="info-value">Waiting...</span>
+        </div>
+    </div>
+
+    <div>
+        <button id="connect-btn" class="btn">1. Connect & Fetch Info</button>
+        <button id="workspace-btn" class="btn" disabled>2. Enter Workspace</button>
+    </div>
+
+    <h3>Operation Logs:</h3>
+    <div id="logs"></div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const APP_ID = 130943;
+        const APP_KEY = "36de02838593125bbe9ab32d08813fb";
+        const LICENSE = "HdMDWuYVpt05j3pIk+/vqoJlfY+SP6vp7z6XDyzGeM0d+Oy4JavUyYP/VsOw5i0UE07Lt5q9rzk9Jex1+CnPQO7OzBE6XwcNwZ0pDP/LPTjqdSPRezbmRB8z5yNf5QbEhe1YyLh++JzW9mr9BCkXy1v1h2+Uo0S1MSRZcLgLRw0=";
+        
+        // In a real app, these would come from your server after authentication
+        const WORKSPACE_ID = "123e4567-e89b-12d3-a456-426614174000"; 
+        const PLATFORM_NAME = "My Custom GCS";
+        const WORKSPACE_NAME = "Field Operations A";
+
+        // --- HELPERS ---
+        function log(msg, level = 'ok') {
+            const logDiv = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = 'status-' + level;
+            entry.innerText = `> ${msg}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateInfo(id, value) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.innerText = value || "Unknown / Not Connected";
+                // Highlight if it's a real value
+                el.style.color = value ? '#4caf50' : '#ff9800';
+            }
+        }
+
+        // --- MAIN LOGIC ---
+        const connectBtn = document.getElementById('connect-btn');
+        const workspaceBtn = document.getElementById('workspace-btn');
+
+        // STEP 1: Verify License, Start MQTT, and Fetch SNs
+        connectBtn.addEventListener('click', () => {
+            try {
+                log("Verifying license...");
+                window.djiBridge.platformVerifyLicense(APP_ID, APP_KEY, LICENSE);
+                if (!window.djiBridge.platformIsVerified()) {
+                    throw new Error("License verification failed!");
+                }
+                log("License verified successfully.");
+
+                // --- FETCH SERIAL NUMBERS ---
+                log("Fetching device information...");
+                
+                // 1. Get RC Serial
+                let rcSn = null;
+                if (typeof window.djiBridge.getRcSn === 'function') {
+                    rcSn = window.djiBridge.getRcSn();
+                } else {
+                     log("Warning: getRcSn() method not found.", 'warn');
+                }
+                updateInfo('rc-sn', rcSn);
+
+                // 2. Get Drone Serial (might be null if not turned on/connected to RC)
+                let droneSn = null;
+                // Try a few common naming variations just in case
+                if (typeof window.djiBridge.getDroneSn === 'function') {
+                    droneSn = window.djiBridge.getDroneSn();
+                } else if (typeof window.djiBridge.getAircraftSn === 'function') {
+                    droneSn = window.djiBridge.getAircraftSn();
+                } else if (typeof window.djiBridge.getPlaneSn === 'function') {
+                     droneSn = window.djiBridge.getPlaneSn();
+                }
+                updateInfo('drone-sn', droneSn);
+
+                if (rcSn) log(`Found RC: ${rcSn}`);
+                if (droneSn) {
+                    log(`Found Drone: ${droneSn}`);
+                } else {
+                    log("Drone SN not found. Is it turned on and connected to RC?", 'warn');
+                }
+
+                // --- START NATIVE MQTT ---
+                log("Starting native MQTT connection...");
+                const mqttParams = JSON.stringify({
+                    host: "tcp://hostnamehere:1883",
+                    username: "userloginhere",
+                    password: "userpasswordhere",
+                    isNeedStartConnect: true 
+                });
+                window.djiBridge.platformLoadComponent("thing", mqttParams);
+                
+                workspaceBtn.disabled = false;
+                log("Ready to enter workspace.");
+
+            } catch (e) {
+                log(e.message, 'err');
+                console.error(e);
+            }
+        });
+
+        // STEP 2: Enter Workspace (Keep-Alive)
+        workspaceBtn.addEventListener('click', () => {
+            try {
+                log(`Setting workspace: ${WORKSPACE_NAME}`);
+                window.djiBridge.platformSetWorkspaceId(WORKSPACE_ID);
+                window.djiBridge.platformSetInformation(PLATFORM_NAME, WORKSPACE_NAME, "Connected");
+                log("✅ Workspace set! You may now press '<' Back.", 'ok');
+            } catch (e) {
+                 log("Error setting workspace: " + e.message, 'err');
+            }
+        });
+
+        log("Ready. Make sure drone is ON and connected to RC.", 'warn');
+    </script>
+</body>
+</html>

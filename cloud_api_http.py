@@ -18,7 +18,7 @@ print("----------------------------")
 app = FastAPI()
 
 
-@app.get("/login")
+@app.get("/")
 async def pilot_login():
     file_path = "./couldhtml/login.html"
     with open(file_path, 'r') as file:

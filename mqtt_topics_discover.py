@@ -18,8 +18,9 @@ discovered_topics = set()
 def on_connect(client, userdata, flags, rc, properties):
     print("Connected with result code " + str(rc))
     # Subscribe to the general "thing" topic, which covers all drone data
-    client.subscribe("thing/#")
-    client.subscribe("sys/#")
+    client.subscribe("thing/product/#")
+    # "sys/product/#" catches online/offline status and topology updates
+    client.subscribe("sys/product/#")
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client: mqtt.Client, userdata, msg: mqtt.MQTTMessage):
