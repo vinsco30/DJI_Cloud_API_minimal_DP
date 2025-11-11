@@ -1,0 +1,30 @@
+session_name: dji_mqtt
+socket_name: mosquitto_telemetry
+
+pre_window: 
+windows:
+- window_name: clients
+  layout: tiled
+  panes:
+    - shell_command:     
+        - sleep 3       
+        - cd /home/dev/DJI_Cloud_API_minimal_DP
+        - ./app.py 
+    - shell_command:
+        - sleep 5
+        - cd /home/dev/DJI_Cloud_API_minimal_DP
+        - sleep 10
+        - ./cloud_api_mqtt.py
+    - shell_command:
+        - sleep 5
+    - shell_command:
+        - sleep 5          
+- window_name: broker
+  layout: tiled
+  panes:
+    - shell_command:
+        - sudo service mosquitto restart
+    - shell_command:
+        - sleep 3
+        - sudo service mosquitto status
+    
